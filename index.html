@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>תיק ההשקעות של דורון</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0E17;
+    --surface:#121826;
+    --surface-2:#171F30;
+    --border:#212B3D;
+    --text:#E8ECF3;
+    --muted:#7C8798;
+    --accent:#4FD1C5;
+    --gain:#34D399;
+    --loss:#FB7185;
+    --pre:#FBBF24;
+    --post:#8B9EFF;
+    --closed:#5B6473;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(79,209,197,0.07), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(139,158,255,0.05), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Rubik',sans-serif;
+    min-height:100vh;
+    padding:28px 20px 60px;
+  }
+  .num{font-family:'IBM Plex Mono',monospace; direction:ltr; unicode-bidi:isolate;}
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* Header */
+  header{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:6px;
+    margin-bottom:22px;
+    padding-bottom:22px;
+    border-bottom:1px solid var(--border);
+  }
+  .title-block h1{
+    font-size:22px;
+    font-weight:700;
+    margin:0 0 4px;
+    letter-spacing:-0.2px;
+  }
+  .title-block .sub{
+    color:var(--muted);
+    font-size:13px;
+  }
+  .pulse-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    margin-top:10px;
+  }
+  .dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--closed);
+    position:relative;
+    flex-shrink:0;
+  }
+  .dot::after{
+    content:'';
+    position:absolute; inset:-5px;
+    border-radius:50%;
+    border:1px solid currentColor;
+    opacity:0;
+  }
+  .dot.live{animation:pulse 1.8s ease-out infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 currentColor; opacity:1;}
+    70%{box-shadow:0 0 0 9px transparent; opacity:0.5;}
+    100%{box-shadow:0 0 0 0 transparent; opacity:1;}
+  }
+  .state-label{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text);
+  }
+  .state-sub{
+    font-size:11.5px;
+    color:var(--muted);
+  }
+
+  .summary{
+    text-align:center;
+    margin-top:14px;
+  }
+  .summary .sum-label{
+    font-size:13px;
+    color:var(--muted);
+    text-align:center;
+  }
+  .summary .sum-label-2{margin-top:16px;}
+  .summary .value{
+    font-size:46px;
+    font-weight:700;
+    transition:color .5s ease;
+  }
+  .summary .delta{
+    font-size:19px;
+    font-weight:600;
+    margin-top:2px;
+  }
+  .summary .ils-line{
+    font-size:15px;
+    color:var(--muted);
+    margin-top:3px;
+  }
+  .summary .updated{
+    font-size:13px;
+    color:var(--muted);
+    margin-top:12px;
+  }
+
+  /* Controls */
+  .controls{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .stat-chips{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .chip{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px 14px;
+  }
+  .chip .k{font-size:10.5px; color:var(--muted); margin-bottom:2px;}
+  .chip .v{font-size:15px; font-weight:600;}
+
+  .controls-right{
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+  select#sortSelect{
+    background:var(--surface);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:9px 12px;
+    border-radius:10px;
+    font-family:'Rubik',sans-serif;
+    font-size:13px;
+    cursor:pointer;
+  }
+  select#sortSelect:focus{outline:1px solid var(--accent);}
+
+  button#refresh{
+    background:var(--surface);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:9px 16px;
+    border-radius:10px;
+    font-family:'Rubik',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    transition:border-color .2s, background .2s;
+  }
+  button#refresh:hover{border-color:var(--accent); background:var(--surface-2);}
+  button#refresh svg{width:14px;height:14px;transition:transform .6s ease;}
+  button#refresh.spinning svg{transform:rotate(360deg);}
+
+  /* Table */
+  .table-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+  }
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  thead th{
+    text-align:right;
+    font-size:11px;
+    font-weight:600;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    padding:12px 14px;
+    border-bottom:1px solid var(--border);
+    background:var(--surface-2);
+    white-space:nowrap;
+  }
+  thead th.num, tbody td.num{text-align:left;}
+  tbody td{
+    padding:13px 14px;
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:rgba(255,255,255,0.015);}
+  .ticker{font-weight:700; font-size:14px;}
+  .ticker-name{font-size:11px; color:var(--muted); font-weight:400; margin-top:1px;}
+  .gain{color:var(--gain);}
+  .loss{color:var(--loss);}
+  .flat{color:var(--muted);}
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 8px;
+    border-radius:100px;
+    font-size:10.5px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .badge.pre{background:rgba(251,191,36,0.12); color:var(--pre);}
+  .badge.post{background:rgba(139,158,255,0.12); color:var(--post);}
+  .badge.closed{background:rgba(91,100,115,0.15); color:var(--closed);}
+  .badge.open{background:rgba(52,211,153,0.12); color:var(--gain);}
+  .ext-price{font-size:11px; color:var(--muted); margin-top:2px;}
+  .err{color:var(--muted); font-size:11px; font-style:italic;}
+  .skeleton{
+    display:inline-block; width:60px; height:12px; border-radius:4px;
+    background:linear-gradient(90deg,var(--surface-2) 25%,#1e2740 37%,var(--surface-2) 63%);
+    background-size:400% 100%;
+    animation:shimmer 1.4s ease infinite;
+  }
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  tfoot td{
+    padding:14px;
+    font-weight:700;
+    border-top:1px solid var(--border);
+    background:var(--surface-2);
+  }
+
+  .charts-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    margin-top:20px;
+  }
+  .chart-card{padding:20px;}
+  .chart-title{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--muted);
+    margin-bottom:14px;
+    text-align:center;
+  }
+  .chart-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 14px;
+    justify-content:center;
+    margin-top:10px;
+    font-size:11.5px;
+  }
+  .chart-legend .item{display:flex; align-items:center; gap:5px;}
+  .chart-legend .swatch{width:9px; height:9px; border-radius:3px; flex-shrink:0;}
+  @media (max-width:760px){
+    .charts-grid{grid-template-columns:1fr;}
+  }
+
+  .sub-num{
+    font-size:10px;
+    color:var(--muted);
+    margin-top:1px;
+  }
+
+  .info-section{
+    margin-top:20px;
+  }
+  .info-title{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--muted);
+    margin-bottom:12px;
+  }
+  .info-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:10px;
+  }
+  .info-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 14px;
+  }
+  .info-card .t{
+    font-size:13px;
+    font-weight:700;
+    margin-bottom:3px;
+  }
+  .info-card .t .num{font-size:12px; color:var(--muted); font-weight:500; margin-right:6px;}
+  .info-card .d{
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.6;
+  }
+  @media (max-width:760px){
+    .info-grid{grid-template-columns:1fr;}
+  }
+
+  footer{
+    margin-top:20px;
+    text-align:center;
+    color:var(--muted);
+    font-size:11.5px;
+    line-height:1.7;
+  }
+  footer a{color:var(--accent); text-decoration:none;}
+
+  @media (max-width:760px){
+    .table-card{overflow-x:auto;}
+    table{min-width:920px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .dot.live{animation:none;}
+    button#refresh.spinning svg{transition:none;}
+  }
+
+  .tv-tape{
+    border-bottom:1px solid var(--border);
+    background:var(--surface);
+    direction:ltr; /* ל-widget יש לוגיקת RTL/LTR פנימית משלו */
+    margin-bottom:28px;
+  }
+</style>
+</head>
+<body>
+<div class="tv-tape">
+  <div class="tradingview-widget-container">
+    <div class="tradingview-widget-container__widget"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+    {
+      "symbols": [
+        {"proName":"AMEX:VOO","title":"VOO"},
+        {"proName":"NASDAQ:QQQ","title":"QQQ"},
+        {"proName":"NASDAQ:MSFT","title":"MSFT"},
+        {"proName":"NYSE:ORCL","title":"ORCL"},
+        {"proName":"NASDAQ:MAGS","title":"MAGS"},
+        {"proName":"NASDAQ:AVGO","title":"AVGO"},
+        {"proName":"NASDAQ:NVDA","title":"NVDA"}
+      ],
+      "showSymbolLogo": true,
+      "isTransparent": true,
+      "displayMode": "adaptive",
+      "colorTheme": "dark",
+      "locale": "he"
+    }
+    </script>
+  </div>
+</div>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <h1>תיק ההשקעות של דורון</h1>
+      <div class="sub">מעקב חי אחרי מניות ותעודות סל · כולל מסחר מוקדם ומאוחר</div>
+      <div class="pulse-row">
+        <span class="dot" id="marketDot"></span>
+        <span class="state-label" id="marketStateLabel">בודק מצב שוק…</span>
+        <span class="state-sub" id="marketStateSub"></span>
+      </div>
+    </div>
+    <div class="summary">
+      <div class="sum-label">שווי תיק</div>
+      <div class="value num" id="totalValue">—</div>
+      <div class="ils-line num" id="totalValueILS">טוען שער ₪…</div>
+
+      <div class="sum-label sum-label-2">שינוי יומי</div>
+      <div class="delta num" id="dailyDelta">—</div>
+      <div class="ils-line num" id="dailyDeltaILS">טוען שער ₪…</div>
+
+      <div class="sum-label sum-label-2">רווח/הפסד כולל</div>
+      <div class="delta num" id="totalDelta">—</div>
+      <div class="ils-line num" id="totalDeltaILS">טוען שער ₪…</div>
+
+      <div class="updated" id="lastUpdated">טרם עודכן</div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="stat-chips">
+      <div class="chip">
+        <div class="k">עלות כוללת</div>
+        <div class="v num" id="chipCost">—</div>
+      </div>
+      <div class="chip">
+        <div class="k">רווח/הפסד כולל</div>
+        <div class="v num" id="chipPL">—</div>
+      </div>
+      <div class="chip">
+        <div class="k">שינוי יומי (משוקלל)</div>
+        <div class="v num" id="chipDaily">—</div>
+      </div>
+      <div class="chip">
+        <div class="k">שינוי יומי ($ / ₪)</div>
+        <div class="v num" id="chipDailyDollar">—</div>
+      </div>
+    </div>
+    <div class="controls-right">
+      <select id="sortSelect" aria-label="מיון הטבלה">
+        <option value="original">סדר מקורי</option>
+        <option value="valueDesc">גודל בתיק (גבוה→נמוך)</option>
+        <option value="valueAsc">גודל בתיק (נמוך→גבוה)</option>
+        <option value="plPctDesc">רווח/הפסד % (גבוה→נמוך)</option>
+        <option value="plPctAsc">רווח/הפסד % (נמוך→גבוה)</option>
+        <option value="dailyDesc">שינוי יומי (גבוה→נמוך)</option>
+        <option value="ticker">אלפביתי (טיקר)</option>
+      </select>
+      <button id="refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        רענן עכשיו
+      </button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>נייר</th>
+          <th class="num">מחיר קניה ממוצע</th>
+          <th class="num">מספר מניות</th>
+          <th class="num">מחיר נוכחי</th>
+          <th class="num">שווי שוק</th>
+          <th class="num">רווח/הפסד</th>
+          <th class="num">רווח/הפסד %</th>
+          <th class="num">% מהתיק</th>
+          <th class="num">שינוי יומי</th>
+          <th class="num">Pre/After Market %</th>
+          <th>מצב שוק</th>
+        </tr>
+      </thead>
+      <tbody id="holdingsBody"></tbody>
+      <tfoot>
+        <tr>
+          <td>סה״כ</td>
+          <td class="num">—</td>
+          <td class="num">—</td>
+          <td class="num">—</td>
+          <td class="num num" id="footValue">—</td>
+          <td class="num num" id="footPL">—</td>
+          <td class="num num" id="footPLPct">—</td>
+          <td class="num">100%</td>
+          <td class="num num" id="footDaily">—</td>
+          <td class="num">—</td>
+          <td>—</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="charts-grid">
+    <div class="table-card chart-card">
+      <div class="chart-title">התפלגות התיק לפי אחזקה</div>
+      <div id="donutChart"></div>
+    </div>
+    <div class="table-card chart-card">
+      <div class="chart-title">תשואה % לפי נייר (ממוין)</div>
+      <div id="barChart"></div>
+    </div>
+  </div>
+
+  <div class="info-section">
+    <div class="info-title">מה כל נייר בתיק בעצם</div>
+    <div class="info-grid" id="infoGrid"></div>
+  </div>
+
+  <footer>
+    נתונים מגיע מ-Yahoo Finance (ציטוט לא רשמי, ייתכן עיכוב של כמה דקות) · מתעדכן אוטומטית כל 60 שניות ·
+    זהו כלי מעקב אישי בלבד ואינו מהווה ייעוץ השקעות<br>
+    נבנה עבור <strong>Almog</strong>
+  </footer>
+</div>
+
+<script>
+/* ====== עריכת החזקות: כאן מעדכנים כשמוסיפים/משנים נייר ====== */
+const HOLDINGS = [
+  { ticker:'VOO',  name:'Vanguard S&P 500 ETF',        avgCost:471.53, shares:48.2811,
+    desc:'קרן סל שעוקבת אחרי מדד S&P 500 - 500 החברות הגדולות בבורסה האמריקאית. פיזור רחב על כל המשק, בלי הימור על חברה בודדת.' },
+  { ticker:'QQQ',  name:'Invesco QQQ Trust',            avgCost:561.89, shares:32.722,
+    desc:'קרן סל שעוקבת אחרי מדד Nasdaq-100 - מרוכזת בעיקר בחברות טכנולוגיה גדולות כמו אפל, מיקרוסופט ואנבידיה.' },
+  { ticker:'MSFT', name:'Microsoft Corp',                avgCost:392.63, shares:28.0496,
+    desc:'חברת התוכנה והענן הגדולה בעולם. מוכרת בעיקר בזכות Windows, Office, ומערכת הענן Azure.' },
+  { ticker:'ORCL', name:'Oracle Corp',                   avgCost:141.98, shares:71.4418,
+    desc:'חברת תוכנה ומסדי נתונים ותיקה וגדולה, שהפכה בשנים האחרונות לשחקנית מרכזית גם בתשתיות ענן ל-AI.' },
+  { ticker:'MAGS', name:'Roundhill Magnificent Seven ETF', avgCost:46.92, shares:121.5674,
+    desc:'קרן סל שמחזיקה רק את 7 ענקיות הטכנולוגיה (אפל, מיקרוסופט, גוגל, אמזון, אנבידיה, מטא, טסלה) במשקל דומה לכל אחת.' },
+  { ticker:'AVGO', name:'Broadcom Inc',                   avgCost:354.53, shares:26.7958,
+    desc:'חברת שבבים ותוכנה אמריקאית מהגדולות בעולם - מספקת רכיבים לרשתות תקשורת, מרכזי נתונים ותשתיות AI.' },
+  { ticker:'NVDA', name:'NVIDIA Corp',                    avgCost:207.71, shares:28.887,
+    desc:'יצרנית מעבדי הגרפיקה (GPU) המובילה בעולם - הספקית המרכזית של שבבים לאימון והרצה של מודלים בתחום הבינה המלאכותית.' },
+];
+/* ============================================================ */
+
+const REFRESH_MS = 60000; // רענון אוטומטי כל 60 שניות
+
+/* מפתח Finnhub שלכם (חינמי, קיבלתם אותו אחרי הרשמה ב-finnhub.io) -
+   זה המקור העיקרי והאמין למחיר, שווי ורווח/הפסד. גישה ישירה מהדפדפן, בלי proxy. */
+const FINNHUB_API_KEY = 'd9vhlopr01qgk75ogp2gd9vhlopr01qgk75ogp30';
+
+const fmtUSD = n => n==null || isNaN(n) ? '—' : '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtILS = n => n==null || isNaN(n) ? '' : '₪' + Math.round(n).toLocaleString('he-IL');
+const fmtPct = n => n==null || isNaN(n) ? '—' : (n>=0?'+':'') + (n*100).toFixed(2) + '%';
+const fmtPctRaw = n => n==null || isNaN(n) ? '—' : (n>=0?'+':'') + n.toFixed(2) + '%';
+const clsFor = n => n==null || isNaN(n) ? 'flat' : (n>0 ? 'gain' : n<0 ? 'loss' : 'flat');
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// שער דולר-שקל, לתצוגה משנית קטנה בלבד. שני מקורות חינמיים, בלי מפתח - אם הראשון
+// נכשל, מנסים את השני. מתעדכן פעם ביום, לא מיועד למסחר, רק לקבל מושג בשקלים.
+let usdIlsRate = null;
+async function loadExchangeRate(){
+  const sources = [
+    async () => {
+      const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=ILS');
+      const data = await res.json();
+      return data?.rates?.ILS;
+    },
+    async () => {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      const data = await res.json();
+      return data?.rates?.ILS;
+    },
+  ];
+  for(const getRate of sources){
+    try{
+      const rate = await getRate();
+      if(rate){
+        usdIlsRate = rate;
+        renderTable();
+        return;
+      }
+    }catch(e){
+      console.warn('שגיאה בטעינת שער דולר-שקל ממקור אחד, מנסה מקור נוסף:', e);
+    }
+  }
+  console.warn('לא ניתן לטעון שער דולר-שקל משום מקור זמין.');
+}
+
+// מקור עיקרי ואמין: Finnhub - קריאה ישירה מהדפדפן, בלי proxy, מהיר כמו TradingView
+// כי זו תשתית API אמיתית ולא פריצה סביב הגבלות דפדפן.
+async function fetchFinnhubQuote(ticker, attempt=0){
+  try{
+    const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${FINNHUB_API_KEY}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    if(data.c == null || data.c === 0) throw new Error('אין נתונים לנייר הזה');
+    return data; // { c: מחיר נוכחי, pc: סגירה קודמת, ... }
+  }catch(e){
+    if(attempt < 2){
+      await sleep(1000 + attempt*800);
+      return fetchFinnhubQuote(ticker, attempt+1);
+    }
+    throw e;
+  }
+}
+
+// שיפור לא-חובה: ניסיון "best effort" להביא מחיר pre/after-market מ-Yahoo Finance
+// דרך proxy ציבורי. אם זה נכשל - פשוט לא מציגים תג pre/post, וזה לא פוגע בשורה
+// או בחישובים העיקריים (שכבר הצליחו דרך Finnhub).
+async function fetchExtendedHoursMeta(ticker){
+  try{
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d&includePrePost=true&_=${Date.now()}`;
+    const proxied = `https://corsproxy.io/?url=${encodeURIComponent(yahooUrl)}`;
+    const res = await fetch(proxied);
+    if(!res.ok) return null;
+    const data = await res.json();
+    return data?.chart?.result?.[0]?.meta || null;
+  }catch(e){
+    return null;
+  }
+}
+
+// מריץ פונקציות אסינכרוניות ברשימה במקבצים קטנים (batches), עם השהיה בין מקבץ למקבץ -
+// כדי לא להציף את שרת ה-proxy החינמי ולהימנע מ-rate limiting.
+async function runInBatches(items, batchSize, gapMs, fn){
+  const results = new Array(items.length);
+  for(let start=0; start<items.length; start+=batchSize){
+    const batch = items.slice(start, start+batchSize);
+    const batchResults = await Promise.all(batch.map((item,i)=> fn(item, start+i)));
+    batchResults.forEach((r,i)=> results[start+i] = r);
+    if(start+batchSize < items.length) await sleep(gapMs);
+  }
+  return results;
+}
+
+function marketStateInfo(state){
+  switch(state){
+    case 'PRE':      return { label:'מסחר מוקדם', sub:'Pre-Market', cls:'pre',  dotLive:true };
+    case 'REGULAR':  return { label:'השוק פתוח',   sub:'Regular Hours', cls:'open', dotLive:true };
+    case 'POST':
+    case 'POSTPOST': return { label:'מסחר מאוחר',  sub:'After-Hours', cls:'post', dotLive:true };
+    case 'CLOSED':   return { label:'השוק סגור',   sub:'Closed', cls:'closed', dotLive:false };
+    default:         return { label:'לא ידוע',     sub:state||'', cls:'closed', dotLive:false };
+  }
+}
+
+function extendedBadge(meta){
+  const state = meta.marketState;
+  if(state === 'PRE'){
+    return meta.preMarketPrice != null
+      ? `<span class="badge pre">מסחר מוקדם</span><div class="ext-price num">${fmtUSD(meta.preMarketPrice)}</div>`
+      : `<span class="badge pre">מסחר מוקדם</span>`;
+  }
+  if(state === 'POST' || state === 'POSTPOST'){
+    return meta.postMarketPrice != null
+      ? `<span class="badge post">מסחר מאוחר</span><div class="ext-price num">${fmtUSD(meta.postMarketPrice)}</div>`
+      : `<span class="badge post">מסחר מאוחר</span>`;
+  }
+  if(state === 'REGULAR'){
+    return `<span class="badge open">מסחר רגיל</span>`;
+  }
+  return `<span class="badge closed">שוק סגור</span>`;
+}
+
+// חישוב מצב השוק בפועל (ניו יורק) לפי השעה הנוכחית - ברירת מחדל אמינה
+// שלא מניחה "השוק פתוח" סתם, גם אם הניסיון להביא נתוני Yahoo נכשל.
+function getUSMarketState(){
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date()).reduce((acc,p) => { acc[p.type] = p.value; return acc; }, {});
+
+  if(parts.weekday === 'Sat' || parts.weekday === 'Sun') return 'CLOSED';
+
+  const minutes = parseInt(parts.hour, 10) * 60 + parseInt(parts.minute, 10);
+  const PRE_START = 4*60, REGULAR_START = 9*60+30, REGULAR_END = 16*60, POST_END = 20*60;
+
+  if(minutes >= PRE_START && minutes < REGULAR_START) return 'PRE';
+  if(minutes >= REGULAR_START && minutes < REGULAR_END) return 'REGULAR';
+  if(minutes >= REGULAR_END && minutes < POST_END) return 'POST';
+  return 'CLOSED';
+  // הערה: זה לא מביא בחשבון חגי בורסה אמריקאיים (כמו חג ההודיה) - בימים כאלה
+  // ייתכן שהתג יראה "מסחר רגיל" בזמן שהבורסה בפועל סגורה.
+}
+
+function effectivePrice(meta){
+  // המחיר האפקטיבי להצגה: בזמן פרה/פוסט מארקט נציג את המחיר המורחב אם קיים,
+  // אחרת את מחיר השוק הרגיל.
+  if(meta.marketState === 'PRE' && meta.preMarketPrice != null) return meta.preMarketPrice;
+  if((meta.marketState === 'POST' || meta.marketState === 'POSTPOST') && meta.postMarketPrice != null) return meta.postMarketPrice;
+  return meta.regularMarketPrice;
+}
+
+let rows = HOLDINGS.map(h => ({...h, marketState:null, error:null}));
+
+function renderSkeleton(){
+  const tbody = document.getElementById('holdingsBody');
+  tbody.innerHTML = rows.map(h => `
+    <tr data-ticker="${h.ticker}">
+      <td>
+        <div class="ticker num">${h.ticker}</div>
+        <div class="ticker-name">${h.name}</div>
+      </td>
+      <td class="num">${fmtUSD(h.avgCost)}</td>
+      <td class="num">${h.shares.toLocaleString('en-US',{maximumFractionDigits:4})}</td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td><span class="skeleton"></span></td>
+    </tr>
+  `).join('');
+}
+
+function renderTable(){
+  const tbody = document.getElementById('holdingsBody');
+  const totalValue = rows.reduce((s,h)=> s + (h.value||0), 0);
+
+  tbody.innerHTML = rows.map(h => {
+    if(h.error){
+      return `<tr data-ticker="${h.ticker}">
+        <td><div class="ticker num">${h.ticker}</div><div class="ticker-name">${h.name}</div></td>
+        <td class="num">${fmtUSD(h.avgCost)}</td>
+        <td class="num">${h.shares.toLocaleString('en-US',{maximumFractionDigits:4})}</td>
+        <td colspan="7" class="err">טוען... ינסה שוב אוטומטית</td>
+        <td></td>
+      </tr>`;
+    }
+    const pct = totalValue ? (h.value/totalValue) : 0;
+    return `<tr data-ticker="${h.ticker}">
+      <td>
+        <div class="ticker num">${h.ticker}</div>
+        <div class="ticker-name">${h.name}</div>
+      </td>
+      <td class="num">${fmtUSD(h.avgCost)}</td>
+      <td class="num">${h.shares.toLocaleString('en-US',{maximumFractionDigits:4})}</td>
+      <td class="num">${fmtUSD(h.price)}</td>
+      <td class="num">${fmtUSD(h.value)}</td>
+      <td class="num ${clsFor(h.pl)}">${h.pl>=0?'+':''}${fmtUSD(h.pl).replace('$','$')}</td>
+      <td class="num ${clsFor(h.plPct)}">${fmtPct(h.plPct)}</td>
+      <td class="num">${(pct*100).toFixed(1)}%</td>
+      <td class="num ${clsFor(h.dailyPct)}">${fmtPct(h.dailyPct)}<div class="sub-num num">${h.dailyDollarTotal>=0?'+':''}${fmtUSD(h.dailyDollarTotal)}</div></td>
+      <td class="num ${h.extPct!=null ? clsFor(h.extPct) : 'flat'}">${h.extPct!=null ? fmtPct(h.extPct) : '—'}</td>
+      <td>${h.badgeHtml}</td>
+    </tr>`;
+  }).join('');
+
+  // totals
+  const totalCost = rows.reduce((s,h)=> s + (h.avgCost * h.shares), 0);
+  const totalPL = totalValue - totalCost;
+  const totalPLPct = totalCost ? totalPL/totalCost : 0;
+  const weightedDaily = totalValue ? rows.reduce((s,h)=> s + (h.dailyPct||0)*(h.value||0), 0)/totalValue : 0;
+  const totalDailyDollar = rows.reduce((s,h)=> s + (h.dailyDollarTotal||0), 0);
+
+  document.getElementById('totalValue').textContent = fmtUSD(totalValue);
+
+  const dailyEl = document.getElementById('dailyDelta');
+  dailyEl.textContent = fmtPct(weightedDaily) + ' (' + (totalDailyDollar>=0?'+':'') + fmtUSD(totalDailyDollar) + ')';
+  dailyEl.className = 'delta num ' + clsFor(totalDailyDollar);
+
+  const deltaEl = document.getElementById('totalDelta');
+  deltaEl.textContent = fmtPct(totalPLPct) + ' (' + (totalPL>=0?'+':'') + fmtUSD(totalPL) + ')';
+  deltaEl.className = 'delta num ' + clsFor(totalPL);
+
+  // המרה משנית לשקלים, לפי שער עדכני (אם נטען בהצלחה)
+  const ilsValueEl = document.getElementById('totalValueILS');
+  const ilsDailyEl = document.getElementById('dailyDeltaILS');
+  const ilsPLEl = document.getElementById('totalDeltaILS');
+  if(usdIlsRate){
+    ilsValueEl.textContent = '≈ ' + fmtILS(totalValue * usdIlsRate) + ' (שער: ' + usdIlsRate.toFixed(3) + ')';
+    ilsDailyEl.textContent = '≈ ' + (totalDailyDollar>=0?'+':'') + fmtILS(totalDailyDollar * usdIlsRate);
+    ilsPLEl.textContent = '≈ ' + (totalPL>=0?'+':'') + fmtILS(totalPL * usdIlsRate);
+  }
+
+  document.getElementById('chipCost').textContent = fmtUSD(totalCost);
+  const chipPL = document.getElementById('chipPL');
+  chipPL.textContent = (totalPL>=0?'+':'') + fmtUSD(totalPL);
+  chipPL.className = 'v num ' + clsFor(totalPL);
+  const chipDaily = document.getElementById('chipDaily');
+  chipDaily.textContent = fmtPct(weightedDaily);
+  chipDaily.className = 'v num ' + clsFor(weightedDaily);
+
+  const chipDailyDollar = document.getElementById('chipDailyDollar');
+  chipDailyDollar.textContent = (totalDailyDollar>=0?'+':'') + fmtUSD(totalDailyDollar) +
+    (usdIlsRate ? ' / ≈' + (totalDailyDollar>=0?'+':'') + fmtILS(totalDailyDollar * usdIlsRate) : '');
+  chipDailyDollar.className = 'v num ' + clsFor(totalDailyDollar);
+
+  document.getElementById('footValue').textContent = fmtUSD(totalValue);
+  const footPL = document.getElementById('footPL');
+  footPL.textContent = (totalPL>=0?'+':'') + fmtUSD(totalPL);
+  footPL.className = 'num ' + clsFor(totalPL);
+  const footPLPct = document.getElementById('footPLPct');
+  footPLPct.textContent = fmtPct(totalPLPct);
+  footPLPct.className = 'num ' + clsFor(totalPLPct);
+  const footDaily = document.getElementById('footDaily');
+  footDaily.textContent = fmtPct(weightedDaily);
+  footDaily.className = 'num ' + clsFor(weightedDaily);
+
+  // overall market state — take the most common / first successful
+  const withState = rows.find(h => h.marketState);
+  if(withState){
+    const info = marketStateInfo(withState.marketState);
+    const dot = document.getElementById('marketDot');
+    dot.className = 'dot' + (info.dotLive ? ' live' : '');
+    dot.style.color = getComputedStyle(document.documentElement).getPropertyValue(
+      info.cls === 'open' ? '--gain' : info.cls === 'pre' ? '--pre' : info.cls === 'post' ? '--post' : '--closed'
+    );
+    document.getElementById('marketStateLabel').textContent = info.label;
+    document.getElementById('marketStateSub').textContent = info.sub;
+  }
+
+  document.getElementById('lastUpdated').textContent = 'עודכן ' + new Date().toLocaleTimeString('he-IL');
+  renderCharts();
+}
+
+async function fetchOneRow(h){
+  try{
+    const q = await fetchFinnhubQuote(h.ticker);
+    h.error = null;
+    h.price = q.c;
+    h.cost = h.avgCost * h.shares;
+    h.prevClose = q.pc;
+    h.dailyPct = q.pc ? (q.c - q.pc) / q.pc : 0;
+    h.dailyDollarTotal = q.pc ? (q.c - q.pc) * h.shares : 0;
+    h.marketState = getUSMarketState();
+    h.badgeHtml = extendedBadge({ marketState: h.marketState });
+
+    // ניסיון נוסף, לא-חוסם: אם יש נתוני pre/after-market זמינים מ-Yahoo, נשתמש בהם
+    // להעשרת התג ולעדכון המחיר האפקטיבי. אם זה נכשל - לא קורה כלום רע, פשוט נשארים
+    // עם המחיר והמצב הרגילים מ-Finnhub שכבר הצליחו.
+    h.extPct = null;
+    const meta = await fetchExtendedHoursMeta(h.ticker);
+    if(meta && meta.marketState){
+      h.marketState = meta.marketState;
+      h.badgeHtml = extendedBadge(meta);
+      const extPrice = effectivePrice(meta);
+      if(extPrice != null) h.price = extPrice;
+      if(meta.marketState === 'PRE' && meta.preMarketChangePercent != null){
+        h.extPct = meta.preMarketChangePercent;
+      } else if((meta.marketState === 'POST' || meta.marketState === 'POSTPOST') && meta.postMarketChangePercent != null){
+        h.extPct = meta.postMarketChangePercent;
+      }
+    }
+
+    h.value = h.price * h.shares;
+    h.pl = h.value - h.cost;
+    h.plPct = h.cost ? h.pl / h.cost : 0;
+  }catch(e){
+    h.error = (e.message || 'שגיאה').slice(0,60);
+  }
+}
+
+async function refreshAll(){
+  const btn = document.getElementById('refresh');
+  btn.classList.add('spinning');
+  renderSkeleton();
+
+  await runInBatches(rows, 3, 700, async (h) => {
+    await fetchOneRow(h);
+    renderTable(); // עדכון מיידי כל שורה שמסתיימת, בלי לחכות לכולן
+  });
+
+  renderTable();
+  setTimeout(()=> btn.classList.remove('spinning'), 600);
+
+  // ניסיונות חוזרים שקטים ברקע לניירות שנכשלו - בלי שהמשתמש צריך ללחוץ על שום דבר
+  quietRetryFailedRows();
+}
+
+async function quietRetryFailedRows(pass=1){
+  const failed = rows.filter(h => h.error);
+  if(failed.length === 0 || pass > 4) return;
+  await sleep(4000 + pass*2000);
+  await runInBatches(failed, 2, 900, async (h) => {
+    await fetchOneRow(h);
+  });
+  renderTable();
+  quietRetryFailedRows(pass+1);
+}
+
+const CHART_COLORS = ['#4472C4','#ED7D31','#A5A5A5','#FFC000','#5B9BD5','#70AD47','#7C9CD6','#F2A46F','#C0C0C0'];
+
+const originalTickerOrder = HOLDINGS.map(h => h.ticker);
+
+document.getElementById('sortSelect').addEventListener('change', (e) => {
+  const mode = e.target.value;
+  const byOrig = (a,b) => originalTickerOrder.indexOf(a.ticker) - originalTickerOrder.indexOf(b.ticker);
+  const sorters = {
+    original:   byOrig,
+    valueDesc:  (a,b) => (b.value||0) - (a.value||0),
+    valueAsc:   (a,b) => (a.value||0) - (b.value||0),
+    plPctDesc:  (a,b) => (b.plPct||0) - (a.plPct||0),
+    plPctAsc:   (a,b) => (a.plPct||0) - (b.plPct||0),
+    dailyDesc:  (a,b) => (b.dailyPct||0) - (a.dailyPct||0),
+    ticker:     (a,b) => a.ticker.localeCompare(b.ticker),
+  };
+  rows.sort(sorters[mode] || byOrig);
+  renderTable();
+});
+
+function polarToXY(cx, cy, r, angleDeg){
+  const rad = (angleDeg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function donutSlicePath(cx, cy, rOuter, rInner, startAngle, endAngle){
+  const p1 = polarToXY(cx, cy, rOuter, endAngle);
+  const p2 = polarToXY(cx, cy, rOuter, startAngle);
+  const p3 = polarToXY(cx, cy, rInner, startAngle);
+  const p4 = polarToXY(cx, cy, rInner, endAngle);
+  const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
+  return `M ${p1.x} ${p1.y} A ${rOuter} ${rOuter} 0 ${largeArc} 0 ${p2.x} ${p2.y}
+          L ${p3.x} ${p3.y} A ${rInner} ${rInner} 0 ${largeArc} 1 ${p4.x} ${p4.y} Z`;
+}
+
+function renderDonutChart(data){
+  const el = document.getElementById('donutChart');
+  if(!el) return;
+  if(data.length === 0){ el.innerHTML = '<div class="chart-title" style="padding:30px 0;">אין עדיין נתונים</div>'; return; }
+
+  const total = data.reduce((s,d)=> s + d.value, 0);
+  const cx=130, cy=130, rOuter=110, rInner=58;
+  let angle = 0;
+  let paths = '';
+  data.forEach((d,i) => {
+    const frac = total ? d.value/total : 0;
+    const sweep = frac * 360;
+    if(sweep > 0){
+      paths += `<path d="${donutSlicePath(cx,cy,rOuter,rInner,angle,angle+sweep)}" fill="${CHART_COLORS[i % CHART_COLORS.length]}"/>`;
+    }
+    angle += sweep;
+  });
+
+  const legend = data.map((d,i) => {
+    const frac = total ? (d.value/total*100) : 0;
+    return `<div class="item"><span class="swatch" style="background:${CHART_COLORS[i % CHART_COLORS.length]}"></span>${d.ticker} · ${frac.toFixed(1)}%</div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <svg viewBox="0 0 260 260" style="width:100%; max-width:260px; display:block; margin:0 auto;">${paths}</svg>
+    <div class="chart-legend">${legend}</div>
+  `;
+}
+
+function renderBarChart(data){
+  const el = document.getElementById('barChart');
+  if(!el) return;
+  if(data.length === 0){ el.innerHTML = '<div class="chart-title" style="padding:30px 0;">אין עדיין נתונים</div>'; return; }
+
+  const sorted = [...data].sort((a,b) => (b.plPct||0) - (a.plPct||0));
+  const maxAbs = Math.max(0.01, ...sorted.map(d => Math.abs(d.plPct||0)));
+  const W = 480, H = 260, padTop = 16, padBottom = 40, midY = (H-padTop-padBottom)/2 + padTop;
+  const barW = (W / sorted.length) * 0.6;
+  const gap = (W / sorted.length);
+
+  let bars = '';
+  sorted.forEach((d,i) => {
+    const val = d.plPct || 0;
+    const h = Math.abs(val) / maxAbs * ((H-padTop-padBottom)/2 - 6);
+    const x = i*gap + (gap-barW)/2;
+    const y = val >= 0 ? midY - h : midY;
+    const color = val >= 0 ? 'var(--gain)' : 'var(--loss)';
+    const labelY = val >= 0 ? (midY - h - 6) : (midY + h + 14);
+    bars += `
+      <rect x="${x}" y="${y}" width="${barW}" height="${Math.max(h,1)}" rx="3" fill="${color}"/>
+      <text x="${x+barW/2}" y="${labelY}" text-anchor="middle" font-size="10.5" fill="${color}" font-family="IBM Plex Mono, monospace">${(val*100).toFixed(1)}%</text>
+    `;
+  });
+  // ticker labels along the zero line
+  let tickerLabels = '';
+  sorted.forEach((d,i) => {
+    const x = i*gap + gap/2;
+    tickerLabels += `<text x="${x}" y="${midY + (d.plPct>=0 ? 16 : -14)}" text-anchor="middle" font-size="10.5" fill="var(--text)" font-family="IBM Plex Mono, monospace" font-weight="600">${d.ticker}</text>`;
+  });
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%; display:block;">
+      <line x1="0" y1="${midY}" x2="${W}" y2="${midY}" stroke="var(--border)" stroke-width="1"/>
+      ${bars}
+      ${tickerLabels}
+    </svg>
+  `;
+}
+
+function renderCharts(){
+  const valid = rows.filter(h => !h.error && h.value != null);
+  renderDonutChart(valid.map(h => ({ ticker:h.ticker, value:h.value })));
+  renderBarChart(valid.map(h => ({ ticker:h.ticker, plPct:h.plPct })));
+}
+
+function renderInfoGrid(){
+  const el = document.getElementById('infoGrid');
+  el.innerHTML = HOLDINGS.map(h => `
+    <div class="info-card">
+      <div class="t"><span class="num">${h.ticker}</span> ${h.name}</div>
+      <div class="d">${h.desc || ''}</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('refresh').addEventListener('click', refreshAll);
+renderInfoGrid();
+renderSkeleton();
+loadExchangeRate();
+setInterval(loadExchangeRate, 30 * 60000); // רענון שער החליפין כל חצי שעה
+refreshAll();
+setInterval(refreshAll, REFRESH_MS);
+</script>
+</body>
+</html>
